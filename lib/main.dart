@@ -243,7 +243,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     );
     
     _newTileAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 100), // Reduced from 150ms
+      duration: const Duration(milliseconds: 80), // Reduced from 100ms
       vsync: this,
     );
     
@@ -261,7 +261,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     );
     
     _newTileAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _newTileAnimationController, curve: Curves.elasticOut),
+      CurvedAnimation(parent: _newTileAnimationController, curve: Curves.easeOut),
     );
     
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
@@ -304,8 +304,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           });
         }
         _newTileAnimationController.forward().then((_) {
-          // Reduced cleanup delay from 100ms to 50ms
-          Future.delayed(const Duration(milliseconds: 50), () {
+          // Reduced cleanup delay from 50ms to 30ms
+          Future.delayed(const Duration(milliseconds: 30), () {
             _newTileAnimationController.reset();
             if (mounted) {
               setState(() {
