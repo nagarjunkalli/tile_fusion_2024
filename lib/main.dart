@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
+import 'support_page.dart'; // Import the new support page
 
 void main() => runApp(const Game2048App());
 
@@ -22,7 +23,8 @@ class _Game2048AppState extends State<Game2048App> {
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeModeIndex = prefs.getInt('theme_mode') ?? 0;
+    // Defaults to 0 (system) if not found, which is desired for first launch.
+    final themeModeIndex = prefs.getInt('theme_mode') ?? ThemeMode.system.index;
     if (mounted) {
       setState(() {
         _themeMode = ThemeMode.values[themeModeIndex];
@@ -35,21 +37,35 @@ class _Game2048AppState extends State<Game2048App> {
     await prefs.setInt('theme_mode', themeMode.index);
   }
 
-  void _toggleTheme() {
+  void _toggleTheme(BuildContext context) {
+    // Added context
+    ThemeMode newThemeMode;
+    // Access platform brightness using context from the widget tree
+    // This requires context to be available where _toggleTheme is defined or called from.
+    // For _Game2048AppState, context is implicitly available in its methods if needed for MediaQuery.
+    // However, if called via a callback from a child, that child needs to pass its context.
+    // Here, Game2048 will pass its context.
+    final Brightness platformBrightness =
+        MediaQuery.of(context).platformBrightness;
+
+    switch (_themeMode) {
+      case ThemeMode.system:
+        // If system, pick the opposite of current system theme then cycle between light/dark
+        newThemeMode = platformBrightness == Brightness.dark
+            ? ThemeMode.light
+            : ThemeMode.dark;
+        break;
+      case ThemeMode.light:
+        newThemeMode = ThemeMode.dark;
+        break;
+      case ThemeMode.dark:
+        newThemeMode = ThemeMode.light;
+        break;
+    }
     setState(() {
-      switch (_themeMode) {
-        case ThemeMode.system:
-          _themeMode = ThemeMode.light;
-          break;
-        case ThemeMode.light:
-          _themeMode = ThemeMode.dark;
-          break;
-        case ThemeMode.dark:
-          _themeMode = ThemeMode.system;
-          break;
-      }
+      _themeMode = newThemeMode;
     });
-    _saveThemeMode(_themeMode);
+    _saveThemeMode(_themeMode); // Save the explicit light/dark choice
   }
 
   @override
@@ -60,7 +76,7 @@ class _Game2048AppState extends State<Game2048App> {
       theme: _lightTheme,
       darkTheme: _darkTheme,
       home: Game2048(
-        onThemeToggle: _toggleTheme,
+        onThemeToggle: _toggleTheme, // Pass the method reference
         currentThemeMode: _themeMode,
       ),
     );
@@ -215,7 +231,7 @@ class Game2048 extends StatefulWidget {
   const Game2048(
       {super.key, required this.onThemeToggle, required this.currentThemeMode});
 
-  final VoidCallback onThemeToggle;
+  final void Function(BuildContext) onThemeToggle; // Updated signature
   final ThemeMode currentThemeMode;
 
   @override
@@ -291,8 +307,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     _pulseAnimationController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
-      lowerBound: 1.0,
-      upperBound: 1.05,
+      // lowerBound: 1.0, // Removed, defaults to 0.0
+      // upperBound: 1.05, // Removed, defaults to 1.0
     );
 
     _slideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -312,8 +328,12 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           parent: _newTileAnimationController, curve: Curves.easeOut),
     );
 
-    _pulseAnimation = CurvedAnimation(
-        parent: _pulseAnimationController, curve: Curves.easeInOut);
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(
+        parent: _pulseAnimationController, // This controller is now 0.0-1.0
+        curve: Curves.easeInOut,
+      ),
+    );
 
     _initializeGame();
     _loadHighScore();
@@ -393,7 +413,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
   }
 
   void _undoMove() {
-    if (!canUndo || isAnimating) { // Allow undo even if gameOver is true
+    if (!canUndo || isAnimating) {
+      // Allow undo even if gameOver is true
       return;
     }
 
@@ -407,7 +428,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
         newTileIds.clear();
         mergedTileIds.clear();
         if (gameOver) {
-          gameOver = false; 
+          gameOver = false;
         }
       });
     }
@@ -432,15 +453,38 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
       if (mounted) {
         setState(() {
           highScore = score;
-          isNewHighScore = true; // For potential UI feedback
+          isNewHighScore = true;
         });
+
+        _pulseAnimationController.stop();
+        // Ensure the value is reset to the very beginning of the animation range (0.0).
+        _pulseAnimationController.value = _pulseAnimationController.lowerBound;
+
         _pulseAnimationController.forward().then((_) {
-          _pulseAnimationController
-              .reverse(); // Or reset() if you prefer a one-shot pulse
+          // This Future completes when the animation is stopped or reaches the end.
+          if (mounted) { // Ensure widget is still mounted
+            // Check if the animation completed by reaching the upper bound (1.0).
+            if (_pulseAnimationController.status == AnimationStatus.completed) {
+              // Explicitly stop and set to upperBound before reversing,
+              // to ensure reverse starts exactly from upperBound.
+              _pulseAnimationController.stop(); 
+              _pulseAnimationController.value = _pulseAnimationController.upperBound;
+              _pulseAnimationController.reverse();
+            }
+            // If the animation didn't complete (e.g., was stopped prematurely),
+            // we don't automatically reverse. It should already be stopped.
+          }
+        }).catchError((error) {
+          // Log the error for diagnostics.
+          print('Error during pulse animation: $error');
+          if (mounted) {
+            // Reset controller to a known safe state on error.
+            _pulseAnimationController.stop();
+            _pulseAnimationController.value = _pulseAnimationController.lowerBound;
+          }
         });
       }
       _saveHighScore();
-      // Optional: Reset isNewHighScore after some time if it drives a temporary UI element
       Future.delayed(const Duration(milliseconds: 2000), () {
         if (mounted) {
           setState(() {
@@ -649,7 +693,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
   }
 
   void _handleSwipe(DragEndDetails details) {
-    if (isAnimating || (gameOver && !gameWon)) { 
+    if (isAnimating || (gameOver && !gameWon)) {
       // Allow moves if gameWon but still playing.
       // Prevent moves if game is truly over (gameOver is true AND gameWon is false)
       return;
@@ -791,12 +835,12 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     );
   }
 
-  void _showGameOverDialog() {
+ void _showGameOverDialog() {
     if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) { // Changed context name to avoid conflict
         final gameTheme = widget.currentThemeMode == ThemeMode.dark
             ? GameTheme.dark
             : GameTheme.light;
@@ -808,13 +852,20 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           content: Text('No more moves available. Your score: $score',
               style: TextStyle(color: gameTheme.instructionTextColor)),
           actions: <Widget>[
-            TextButton(
-              child: Text('Try Again',
-                  style: TextStyle(
-                      color: gameTheme.buttonColor,
-                      fontWeight: FontWeight.bold)),
+            if (canUndo) // Conditionally add the Undo button
+              ElevatedButton.icon(
+                icon: Icon(Icons.undo, color: gameTheme.titleColor),
+                label: const Text('Undo', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(); 
+                  _undoMove();
+                },
+              ),
+            ElevatedButton.icon(
+              icon: Icon(Icons.refresh, color: gameTheme.titleColor),
+              label: const Text('Try Again', style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop(); 
                 _restartGame();
               },
             ),
@@ -828,7 +879,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
+        // Changed context name
         final gameTheme = widget.currentThemeMode == ThemeMode.dark
             ? GameTheme.dark
             : GameTheme.light;
@@ -863,7 +915,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                       color: gameTheme.buttonColor,
                       fontWeight: FontWeight.bold)),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop(); // Use dialogContext
               },
             ),
           ],
@@ -910,14 +962,25 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                   ? Icons.light_mode
                   : widget.currentThemeMode == ThemeMode.light
                       ? Icons.dark_mode
-                      : Icons.brightness_auto,
+                      : Icons
+                          .brightness_auto, // Shows auto if current is system
               color: gameTheme.titleColor,
             ),
-            onPressed: widget.onThemeToggle,
+            onPressed: () => widget.onThemeToggle(context), // Pass context here
           ),
           IconButton(
             icon: Icon(Icons.info_outline, color: gameTheme.titleColor),
             onPressed: _showInstructionsDialog,
+          ),
+          IconButton( // Added Support Me button
+            icon: Icon(Icons.favorite_border, color: gameTheme.titleColor),
+            tooltip: 'Support Me',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SupportPage()),
+              );
+            },
           ),
         ],
       ),
@@ -1038,19 +1101,29 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                     );
 
                     if (isNew) {
-                      // Apply new tile animation (e.g., scale or fade in)
-                      // Example: Using _newTileAnimationController with AnimatedBuilder
-                      // This is a conceptual example. You'll need to refine this for proper animation.
-                      return ScaleTransition(
-                        scale: _newTileAnimation, // Use the animation directly
+                      // Clamp the animation value to [0, 1] to avoid assertion errors
+                      return AnimatedBuilder(
+                        animation: _newTileAnimation,
+                        builder: (context, child) {
+                          final scale = _newTileAnimation.value.clamp(0.0, 1.0);
+                          return Transform.scale(
+                            scale: scale,
+                            child: child,
+                          );
+                        },
                         child: tile,
                       );
                     }
                     if (isMerged) {
-                      // Apply merged tile animation (e.g., scale pop)
-                      // Example: Using _scaleAnimationController with AnimatedBuilder
-                      return ScaleTransition(
-                        scale: _scaleAnimation, // Use the animation directly
+                      return AnimatedBuilder(
+                        animation: _scaleAnimation,
+                        builder: (context, child) {
+                          final scale = _scaleAnimation.value.clamp(0.0, 1.05);
+                          return Transform.scale(
+                            scale: scale,
+                            child: child,
+                          );
+                        },
                         child: tile,
                       );
                     }
@@ -1249,9 +1322,18 @@ class ScoreDisplay extends StatelessWidget {
     );
 
     if (isPulsing) {
-      return ScaleTransition(
-        scale: pulseAnimation,
+      return TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 1.0, end: 1.05),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        builder: (context, scale, child) {
+          return Transform.scale(
+            scale: scale.clamp(1.0, 1.05),
+            child: child,
+          );
+        },
         child: content,
+        onEnd: () {},
       );
     }
     return content;
