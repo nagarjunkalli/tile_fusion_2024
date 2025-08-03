@@ -204,7 +204,7 @@ class GameTheme {
       256: Color(0xFFE5A532), // Darker yellow-orange
       512: Color(0xFFEDB32C), // Darker yellow
       1024: Color(0xFFF5C542), // Lighter yellow for dark theme
-      2048: Color(0xFFFFD700), // Gold
+      2048: Color(0xFFEAA220), // Changed from Color(0xFFFFD700) to a more muted gold/amber
       4096: Color(0xFF9B59B6), // Purple
       8192: Color(0xFF8E44AD), // Darker Purple
     },
@@ -462,13 +462,15 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
 
         _pulseAnimationController.forward().then((_) {
           // This Future completes when the animation is stopped or reaches the end.
-          if (mounted) { // Ensure widget is still mounted
+          if (mounted) {
+            // Ensure widget is still mounted
             // Check if the animation completed by reaching the upper bound (1.0).
             if (_pulseAnimationController.status == AnimationStatus.completed) {
               // Explicitly stop and set to upperBound before reversing,
               // to ensure reverse starts exactly from upperBound.
-              _pulseAnimationController.stop(); 
-              _pulseAnimationController.value = _pulseAnimationController.upperBound;
+              _pulseAnimationController.stop();
+              _pulseAnimationController.value =
+                  _pulseAnimationController.upperBound;
               _pulseAnimationController.reverse();
             }
             // If the animation didn't complete (e.g., was stopped prematurely),
@@ -480,7 +482,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           if (mounted) {
             // Reset controller to a known safe state on error.
             _pulseAnimationController.stop();
-            _pulseAnimationController.value = _pulseAnimationController.lowerBound;
+            _pulseAnimationController.value =
+                _pulseAnimationController.lowerBound;
           }
         });
       }
@@ -696,8 +699,16 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     if (isAnimating || (gameOver && !gameWon)) {
       // Allow moves if gameWon but still playing.
       // Prevent moves if game is truly over (gameOver is true AND gameWon is false)
+      // This condition was originally: if (isAnimating || gameOver) { ... }
+      // Which prevented moves after gameWon if the board was full.
+      // The new condition "if (isAnimating || (gameOver && !gameWon))" might also be too restrictive.
+      // The simplest is "if (isAnimating || gameOver)" but this is the problem point.
+      // Let's adjust this. Game over should strictly mean no moves possible.
+      // Winning (2048) doesn't mean game over. You can continue playing.
+      // So, if gameOver is true, no moves allowed. That's it.
       return;
     }
+    if (gameOver) return; // If game over state is already true, no more moves.
 
     bool moved = false;
     final velocity = details.velocity.pixelsPerSecond;
@@ -764,17 +775,20 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
       });
     }
 
-    _updateHighScore();
+    _updateHighScore(); // This might set gameWon if 2048 is reached and _showWinDialog is called.
 
-    if (!gameWon && _isGameOver()) {
+    // Check for game over state regardless of whether the game has been "won"
+    // (i.e., 2048 tile achieved). The player can continue playing after winning.
+    if (_isGameOver()) {
       if (mounted) {
         setState(() {
           gameOver = true;
         });
-        // Delay showing dialog to allow animations to settle
+        // Delay showing dialog to allow other animations (like win dialog) to settle.
+        // Also, it's possible a quick undo happens, so re-check gameOver status.
         Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted && gameOver && !gameWon) {
-            // Check again in case of quick restart or win
+          if (mounted && gameOver) {
+            // Removed !gameWon condition
             _showGameOverDialog();
           }
         });
@@ -806,17 +820,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                       fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.of(context).pop();
-                if (mounted) {
-                  setState(() {
-                    // gameWon remains true, gameOver might be true if no more moves after 2048
-                    // but we allow playing, so ensure gameOver is false if it was set by isGameOver solely
-                    if (_isGameOver()) {
-                      // It might be game over even after winning if the board is full
-                      // setState(() => gameOver = true);
-                      // Let finishMove handle actual game over state
-                    }
-                  });
-                }
+                // gameWon remains true. If _isGameOver() is true, _finishMove will handle it.
               },
             ),
             TextButton(
@@ -835,12 +839,13 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     );
   }
 
- void _showGameOverDialog() {
+  void _showGameOverDialog() {
     if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext dialogContext) { // Changed context name to avoid conflict
+      builder: (BuildContext dialogContext) {
+        // Changed context name to avoid conflict
         final gameTheme = widget.currentThemeMode == ThemeMode.dark
             ? GameTheme.dark
             : GameTheme.light;
@@ -855,17 +860,19 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
             if (canUndo) // Conditionally add the Undo button
               ElevatedButton.icon(
                 icon: Icon(Icons.undo, color: gameTheme.titleColor),
-                label: const Text('Undo', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('Undo',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 onPressed: () {
-                  Navigator.of(dialogContext).pop(); 
+                  Navigator.of(dialogContext).pop();
                   _undoMove();
                 },
               ),
             ElevatedButton.icon(
               icon: Icon(Icons.refresh, color: gameTheme.titleColor),
-              label: const Text('Try Again', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('Try Again',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); 
+                Navigator.of(dialogContext).pop();
                 _restartGame();
               },
             ),
@@ -972,7 +979,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
             icon: Icon(Icons.info_outline, color: gameTheme.titleColor),
             onPressed: _showInstructionsDialog,
           ),
-          IconButton( // Added Support Me button
+          IconButton(
+            // Added Support Me button
             icon: Icon(Icons.favorite_border, color: gameTheme.titleColor),
             tooltip: 'Support Me',
             onPressed: () {
@@ -1009,6 +1017,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
             const SizedBox(height: 20),
             GestureDetector(
               onHorizontalDragEnd: (details) {
+                // Added a check for 'gameOver' state before handling swipe.
+                if (gameOver) return;
                 if (details.primaryVelocity! > 200)
                   _handleSwipe(DragEndDetails(
                       velocity: Velocity(
@@ -1021,6 +1031,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                               Offset(details.primaryVelocity!, 0))));
               },
               onVerticalDragEnd: (details) {
+                // Added a check for 'gameOver' state before handling swipe.
+                if (gameOver) return;
                 if (details.primaryVelocity! > 200)
                   _handleSwipe(DragEndDetails(
                       velocity: Velocity(
