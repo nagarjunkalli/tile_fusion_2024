@@ -228,8 +228,11 @@ class GameTheme {
 }
 
 class Game2048 extends StatefulWidget {
-  const Game2048(
-      {super.key, required this.onThemeToggle, required this.currentThemeMode});
+  const Game2048({
+    super.key,
+    required this.onThemeToggle,
+    required this.currentThemeMode,
+  });
 
   final void Function(BuildContext) onThemeToggle; // Updated signature
   final ThemeMode currentThemeMode;
@@ -478,7 +481,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           }
         }).catchError((error) {
           // Log the error for diagnostics.
-          print('Error during pulse animation: $error');
+          // TODO: Replace with proper logging in production
+          // print('Error during pulse animation: $error');
           if (mounted) {
             // Reset controller to a known safe state on error.
             _pulseAnimationController.stop();
@@ -943,11 +947,12 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
 
     // Determine text color based on tile value
     Color getTextColorForTile(int value) {
-      if (value >= 8)
+      if (value >= 8) {
         return gameTheme.textColors[8] ??
             (widget.currentThemeMode == ThemeMode.dark
                 ? Colors.white
                 : Colors.black); // Default for higher if not specified
+      }
       return gameTheme.textColors[value] ??
           (widget.currentThemeMode == ThemeMode.dark
               ? Colors.white
