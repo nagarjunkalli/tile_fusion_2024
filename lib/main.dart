@@ -23,7 +23,6 @@ class _Game2048AppState extends State<Game2048App> {
 
   Future<void> _loadThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    // Defaults to 0 (system) if not found, which is desired for first launch.
     final themeModeIndex = prefs.getInt('theme_mode') ?? ThemeMode.system.index;
     if (mounted) {
       setState(() {
@@ -38,19 +37,12 @@ class _Game2048AppState extends State<Game2048App> {
   }
 
   void _toggleTheme(BuildContext context) {
-    // Added context
     ThemeMode newThemeMode;
-    // Access platform brightness using context from the widget tree
-    // This requires context to be available where _toggleTheme is defined or called from.
-    // For _Game2048AppState, context is implicitly available in its methods if needed for MediaQuery.
-    // However, if called via a callback from a child, that child needs to pass its context.
-    // Here, Game2048 will pass its context.
     final Brightness platformBrightness =
         MediaQuery.of(context).platformBrightness;
 
     switch (_themeMode) {
       case ThemeMode.system:
-        // If system, pick the opposite of current system theme then cycle between light/dark
         newThemeMode = platformBrightness == Brightness.dark
             ? ThemeMode.light
             : ThemeMode.dark;
@@ -65,7 +57,7 @@ class _Game2048AppState extends State<Game2048App> {
     setState(() {
       _themeMode = newThemeMode;
     });
-    _saveThemeMode(_themeMode); // Save the explicit light/dark choice
+    _saveThemeMode(_themeMode);
   }
 
   @override
@@ -76,7 +68,7 @@ class _Game2048AppState extends State<Game2048App> {
       theme: _lightTheme,
       darkTheme: _darkTheme,
       home: Game2048(
-        onThemeToggle: _toggleTheme, // Pass the method reference
+        onThemeToggle: _toggleTheme,
         currentThemeMode: _themeMode,
       ),
     );
@@ -166,7 +158,6 @@ class GameTheme {
     textColors: {
       2: Color(0xFF776E65),
       4: Color(0xFF776E65),
-      // Higher values typically use a lighter text color
       8: Color(0xFFF9F6F2),
       16: Color(0xFFF9F6F2),
       32: Color(0xFFF9F6F2),
@@ -196,22 +187,21 @@ class GameTheme {
       0: Color(0xFF3A3A3A),
       2: Color(0xFF4A4A4A),
       4: Color(0xFF5A5A5A),
-      8: Color(0xFF8B6914), // Darker orange/brown
-      16: Color(0xFFA67C14), // Darker orange
-      32: Color(0xFFB58900), // Darker yellow
-      64: Color(0xFFCB4B16), // Darker red-orange
-      128: Color(0xFFDC8C2C), // Darker orange-yellow
-      256: Color(0xFFE5A532), // Darker yellow-orange
-      512: Color(0xFFEDB32C), // Darker yellow
-      1024: Color(0xFFF5C542), // Lighter yellow for dark theme
-      2048: Color(0xFFEAA220), // Changed from Color(0xFFFFD700) to a more muted gold/amber
-      4096: Color(0xFF9B59B6), // Purple
-      8192: Color(0xFF8E44AD), // Darker Purple
+      8: Color(0xFF8B6914),
+      16: Color(0xFFA67C14),
+      32: Color(0xFFB58900),
+      64: Color(0xFFCB4B16),
+      128: Color(0xFFDC8C2C),
+      256: Color(0xFFE5A532),
+      512: Color(0xFFEDB32C),
+      1024: Color(0xFFF5C542),
+      2048: Color(0xFFEAA220),
+      4096: Color(0xFF9B59B6),
+      8192: Color(0xFF8E44AD),
     },
     textColors: {
       2: Color(0xFFE5E5E5),
       4: Color(0xFFE5E5E5),
-      // Higher values typically use a lighter text color
       8: Color(0xFFE5E5E5),
       16: Color(0xFFE5E5E5),
       32: Color(0xFFE5E5E5),
@@ -219,8 +209,8 @@ class GameTheme {
       128: Color(0xFFE5E5E5),
       256: Color(0xFFE5E5E5),
       512: Color(0xFFE5E5E5),
-      1024: Color(0xFF1A1A1A), // Dark text on light yellow
-      2048: Color(0xFF1A1A1A), // Dark text on gold
+      1024: Color(0xFF1A1A1A),
+      2048: Color(0xFF1A1A1A),
       4096: Color(0xFFE5E5E5),
       8192: Color(0xFFE5E5E5),
     },
@@ -231,7 +221,7 @@ class Game2048 extends StatefulWidget {
   const Game2048(
       {super.key, required this.onThemeToggle, required this.currentThemeMode});
 
-  final void Function(BuildContext) onThemeToggle; // Updated signature
+  final void Function(BuildContext) onThemeToggle;
   final ThemeMode currentThemeMode;
 
   @override
@@ -275,7 +265,6 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
   late AnimationController _newTileAnimationController;
   late AnimationController _pulseAnimationController;
 
-  // These animations can be used by AnimatedBuilder widgets for tile animations
   late Animation<double> _slideAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _newTileAnimation;
@@ -284,53 +273,53 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
   Set<String> newTileIds = {};
   Set<String> mergedTileIds = {};
 
+  // Variables for responsive UI
+  double _boardSize = 300.0; // Default, will be updated by LayoutBuilder
+  double _tileGap = 8.0;
+  double _tileContainerSize = 60.0;
+  double _appBarTitleFontSize = 20.0;
+  double _scoreLabelFontSize = 14.0;
+  double _scoreValueFontSize = 22.0;
+  double _buttonFontSize = 16.0;
+  double _tileNumberBaseFontSize = 28.0;
+
+
   @override
   void initState() {
     super.initState();
 
     _slideAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 80), // Fast for slide
+      duration: const Duration(milliseconds: 80),
       vsync: this,
     );
-
     _scaleAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 120), // Slightly longer for pop
+      duration: const Duration(milliseconds: 120),
       vsync: this,
     );
-
     _newTileAnimationController = AnimationController(
-      duration:
-          const Duration(milliseconds: 80), // Fast for new tile appearance
+      duration: const Duration(milliseconds: 80),
       vsync: this,
     );
-
     _pulseAnimationController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
-      // lowerBound: 1.0, // Removed, defaults to 0.0
-      // upperBound: 1.05, // Removed, defaults to 1.0
     );
 
     _slideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
           parent: _slideAnimationController, curve: Curves.easeOutCubic),
     );
-
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      // Pop effect
       CurvedAnimation(
           parent: _scaleAnimationController, curve: Curves.easeOutBack),
     );
-
     _newTileAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      // Fade/Scale in
       CurvedAnimation(
           parent: _newTileAnimationController, curve: Curves.easeOut),
     );
-
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(
-        parent: _pulseAnimationController, // This controller is now 0.0-1.0
+        parent: _pulseAnimationController,
         curve: Curves.easeInOut,
       ),
     );
@@ -414,10 +403,8 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
 
   void _undoMove() {
     if (!canUndo || isAnimating) {
-      // Allow undo even if gameOver is true
       return;
     }
-
     if (mounted) {
       setState(() {
         score = previousScore;
@@ -455,32 +442,19 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           highScore = score;
           isNewHighScore = true;
         });
-
         _pulseAnimationController.stop();
-        // Ensure the value is reset to the very beginning of the animation range (0.0).
         _pulseAnimationController.value = _pulseAnimationController.lowerBound;
-
         _pulseAnimationController.forward().then((_) {
-          // This Future completes when the animation is stopped or reaches the end.
           if (mounted) {
-            // Ensure widget is still mounted
-            // Check if the animation completed by reaching the upper bound (1.0).
             if (_pulseAnimationController.status == AnimationStatus.completed) {
-              // Explicitly stop and set to upperBound before reversing,
-              // to ensure reverse starts exactly from upperBound.
               _pulseAnimationController.stop();
               _pulseAnimationController.value =
                   _pulseAnimationController.upperBound;
               _pulseAnimationController.reverse();
             }
-            // If the animation didn't complete (e.g., was stopped prematurely),
-            // we don't automatically reverse. It should already be stopped.
           }
         }).catchError((error) {
-          // Log the error for diagnostics.
-          print('Error during pulse animation: $error');
           if (mounted) {
-            // Reset controller to a known safe state on error.
             _pulseAnimationController.stop();
             _pulseAnimationController.value =
                 _pulseAnimationController.lowerBound;
@@ -502,12 +476,10 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     _saveGameState();
     bool moved = false;
     if (mounted) setState(() => mergedTileIds.clear());
-
     for (int r = 0; r < size; r++) {
       List<int> currentRow = List.from(grid[r]);
       List<int> compactedRow = currentRow.where((val) => val != 0).toList();
       List<int> mergedRow = [];
-
       for (int i = 0; i < compactedRow.length; i++) {
         if (i + 1 < compactedRow.length &&
             compactedRow[i] == compactedRow[i + 1]) {
@@ -526,12 +498,10 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           mergedRow.add(compactedRow[i]);
         }
       }
-
       List<int> finalRow = List.filled(size, 0);
       for (int i = 0; i < mergedRow.length; i++) {
         finalRow[i] = mergedRow[i];
       }
-
       for (int c = 0; c < size; c++) {
         if (grid[r][c] != finalRow[c]) {
           moved = true;
@@ -546,13 +516,11 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     _saveGameState();
     bool moved = false;
     if (mounted) setState(() => mergedTileIds.clear());
-
     for (int r = 0; r < size; r++) {
       List<int> currentRow = List.from(grid[r]);
       List<int> compactedRow =
           currentRow.where((val) => val != 0).toList().reversed.toList();
       List<int> mergedRow = [];
-
       for (int i = 0; i < compactedRow.length; i++) {
         if (i + 1 < compactedRow.length &&
             compactedRow[i] == compactedRow[i + 1]) {
@@ -571,12 +539,10 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           mergedRow.add(compactedRow[i]);
         }
       }
-
       List<int> finalRow = List.filled(size, 0);
       for (int i = 0; i < mergedRow.length; i++) {
         finalRow[size - 1 - i] = mergedRow[i];
       }
-
       for (int c = 0; c < size; c++) {
         if (grid[r][c] != finalRow[c]) {
           moved = true;
@@ -591,16 +557,13 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     _saveGameState();
     bool moved = false;
     if (mounted) setState(() => mergedTileIds.clear());
-
     for (int c = 0; c < size; c++) {
       List<int> currentCol = [];
       for (int r = 0; r < size; r++) {
         currentCol.add(grid[r][c]);
       }
-
       List<int> compactedCol = currentCol.where((val) => val != 0).toList();
       List<int> mergedCol = [];
-
       for (int i = 0; i < compactedCol.length; i++) {
         if (i + 1 < compactedCol.length &&
             compactedCol[i] == compactedCol[i + 1]) {
@@ -619,12 +582,10 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           mergedCol.add(compactedCol[i]);
         }
       }
-
       List<int> finalCol = List.filled(size, 0);
       for (int i = 0; i < mergedCol.length; i++) {
         finalCol[i] = mergedCol[i];
       }
-
       for (int r = 0; r < size; r++) {
         if (grid[r][c] != finalCol[r]) {
           moved = true;
@@ -639,17 +600,14 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     _saveGameState();
     bool moved = false;
     if (mounted) setState(() => mergedTileIds.clear());
-
     for (int c = 0; c < size; c++) {
       List<int> currentCol = [];
       for (int r = 0; r < size; r++) {
         currentCol.add(grid[r][c]);
       }
-
       List<int> compactedCol =
           currentCol.where((val) => val != 0).toList().reversed.toList();
       List<int> mergedCol = [];
-
       for (int i = 0; i < compactedCol.length; i++) {
         if (i + 1 < compactedCol.length &&
             compactedCol[i] == compactedCol[i + 1]) {
@@ -668,12 +626,10 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           mergedCol.add(compactedCol[i]);
         }
       }
-
       List<int> finalCol = List.filled(size, 0);
       for (int i = 0; i < mergedCol.length; i++) {
         finalCol[size - 1 - i] = mergedCol[i];
       }
-
       for (int r = 0; r < size; r++) {
         if (grid[r][c] != finalCol[r]) {
           moved = true;
@@ -696,19 +652,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
   }
 
   void _handleSwipe(DragEndDetails details) {
-    if (isAnimating || (gameOver && !gameWon)) {
-      // Allow moves if gameWon but still playing.
-      // Prevent moves if game is truly over (gameOver is true AND gameWon is false)
-      // This condition was originally: if (isAnimating || gameOver) { ... }
-      // Which prevented moves after gameWon if the board was full.
-      // The new condition "if (isAnimating || (gameOver && !gameWon))" might also be too restrictive.
-      // The simplest is "if (isAnimating || gameOver)" but this is the problem point.
-      // Let's adjust this. Game over should strictly mean no moves possible.
-      // Winning (2048) doesn't mean game over. You can continue playing.
-      // So, if gameOver is true, no moves allowed. That's it.
-      return;
-    }
-    if (gameOver) return; // If game over state is already true, no more moves.
+    if (isAnimating || gameOver) return;
 
     bool moved = false;
     final velocity = details.velocity.pixelsPerSecond;
@@ -738,19 +682,15 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
       if (mounted) {
         setState(() {
           isAnimating = true;
-          canUndo = true; // Enable undo after a successful move
+          canUndo = true;
         });
       }
-
       _slideAnimationController.forward();
       if (mergedTileIds.isNotEmpty) {
         _scaleAnimationController.forward().then((_) {
-          _scaleAnimationController
-              .reverse(); // Or .reset() depending on desired effect after pop
+          _scaleAnimationController.reverse();
         });
       }
-
-      // Wait for slide animation to conceptually finish before adding new tile
       Future.delayed(
           _slideAnimationController.duration ??
               const Duration(milliseconds: 80), () {
@@ -764,31 +704,20 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
 
   void _finishMove() {
     if (!mounted) return;
-
-    _addRandomTile(); // Add new tile after move and animations start
-
+    _addRandomTile();
     if (mounted) {
       setState(() {
         isAnimating = false;
-        // Note: mergedTileIds is cleared at the start of a move.
-        // newTileIds are managed within _addRandomTile and its animation callbacks.
       });
     }
-
-    _updateHighScore(); // This might set gameWon if 2048 is reached and _showWinDialog is called.
-
-    // Check for game over state regardless of whether the game has been "won"
-    // (i.e., 2048 tile achieved). The player can continue playing after winning.
+    _updateHighScore();
     if (_isGameOver()) {
       if (mounted) {
         setState(() {
           gameOver = true;
         });
-        // Delay showing dialog to allow other animations (like win dialog) to settle.
-        // Also, it's possible a quick undo happens, so re-check gameOver status.
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted && gameOver) {
-            // Removed !gameWon condition
             _showGameOverDialog();
           }
         });
@@ -820,7 +749,6 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                       fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.of(context).pop();
-                // gameWon remains true. If _isGameOver() is true, _finishMove will handle it.
               },
             ),
             TextButton(
@@ -845,7 +773,6 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        // Changed context name to avoid conflict
         final gameTheme = widget.currentThemeMode == ThemeMode.dark
             ? GameTheme.dark
             : GameTheme.light;
@@ -857,7 +784,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           content: Text('No more moves available. Your score: $score',
               style: TextStyle(color: gameTheme.instructionTextColor)),
           actions: <Widget>[
-            if (canUndo) // Conditionally add the Undo button
+            if (canUndo)
               ElevatedButton.icon(
                 icon: Icon(Icons.undo, color: gameTheme.titleColor),
                 label: const Text('Undo',
@@ -887,7 +814,6 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        // Changed context name
         final gameTheme = widget.currentThemeMode == ThemeMode.dark
             ? GameTheme.dark
             : GameTheme.light;
@@ -922,7 +848,7 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                       color: gameTheme.buttonColor,
                       fontWeight: FontWeight.bold)),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Use dialogContext
+                Navigator.of(dialogContext).pop();
               },
             ),
           ],
@@ -931,23 +857,28 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
     );
   }
 
+  // Helper method for tile number font size
+  double _getTileNumberFontSize(int value) {
+    if (value >= 10000) return _tileNumberBaseFontSize * 0.5; // e.g. 16384
+    if (value >= 1000) return _tileNumberBaseFontSize * 0.6;  // e.g. 2048, 4096, 8192
+    if (value >= 100) return _tileNumberBaseFontSize * 0.75; // e.g. 128, 256, 512
+    return _tileNumberBaseFontSize; // e.g. 2, 4, 8, 16, 32, 64
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final gameTheme = widget.currentThemeMode == ThemeMode.dark
         ? GameTheme.dark
         : GameTheme.light;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final double gridSize = screenWidth * 0.9; // 90% of screen width
-    final double tileSize =
-        (gridSize - (size + 1) * 8) / size; // 8 is padding between tiles
 
-    // Determine text color based on tile value
     Color getTextColorForTile(int value) {
-      if (value >= 8)
+      if (value >= 8) {
         return gameTheme.textColors[8] ??
             (widget.currentThemeMode == ThemeMode.dark
                 ? Colors.white
-                : Colors.black); // Default for higher if not specified
+                : Colors.black);
+      }
       return gameTheme.textColors[value] ??
           (widget.currentThemeMode == ThemeMode.dark
               ? Colors.white
@@ -959,7 +890,10 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
       appBar: AppBar(
         title: Text('Tile Fusion 2048',
             style: TextStyle(
-                color: gameTheme.titleColor, fontWeight: FontWeight.bold)),
+                color: gameTheme.titleColor,
+                fontWeight: FontWeight.bold,
+                fontSize: _appBarTitleFontSize,
+                )),
         backgroundColor: gameTheme.backgroundColor,
         elevation: 0,
         actions: [
@@ -969,18 +903,16 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
                   ? Icons.light_mode
                   : widget.currentThemeMode == ThemeMode.light
                       ? Icons.dark_mode
-                      : Icons
-                          .brightness_auto, // Shows auto if current is system
+                      : Icons.brightness_auto,
               color: gameTheme.titleColor,
             ),
-            onPressed: () => widget.onThemeToggle(context), // Pass context here
+            onPressed: () => widget.onThemeToggle(context),
           ),
           IconButton(
             icon: Icon(Icons.info_outline, color: gameTheme.titleColor),
             onPressed: _showInstructionsDialog,
           ),
           IconButton(
-            // Added Support Me button
             icon: Icon(Icons.favorite_border, color: gameTheme.titleColor),
             tooltip: 'Support Me',
             onPressed: () {
@@ -992,296 +924,337 @@ class _Game2048State extends State<Game2048> with TickerProviderStateMixin {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          // --- Calculate dynamic sizes ---
+          double availableWidth = constraints.maxWidth - 32; // considerar padding geral do body
+          double availableHeight = constraints.maxHeight - 32;
+
+          // Estimate vertical space used by non-board elements (AppBar is separate)
+          // Score displays, buttons, spacing. This is an approximation.
+          // Let's say roughly 150-200 dp for scores and buttons area + top/bottom padding.
+          double estimatedNonBoardHeight = 200;
+          
+          double heightForBoard = availableHeight - estimatedNonBoardHeight;
+          if (heightForBoard < 200) heightForBoard = 200; // Min height for board area
+
+          _boardSize = min(availableWidth, heightForBoard);
+          _boardSize = _boardSize.clamp(280.0, 600.0); // Clamp board size
+
+          _tileGap = (_boardSize * 0.03).clamp(4.0, 12.0); // 3% of board size for gap
+          _tileContainerSize = (_boardSize - (size + 1) * _tileGap) / size;
+
+          // Responsive font sizes (adjust multipliers as needed)
+          _appBarTitleFontSize = (_boardSize * 0.06).clamp(18.0, 30.0);
+          _scoreLabelFontSize = (_boardSize * 0.04).clamp(12.0, 18.0);
+          _scoreValueFontSize = (_boardSize * 0.06).clamp(18.0, 28.0);
+          _buttonFontSize = (_boardSize * 0.045).clamp(14.0, 20.0);
+          _tileNumberBaseFontSize = (_tileContainerSize * 0.35).clamp(16.0, 40.0);
+
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                ScoreDisplay(
-                    label: 'SCORE',
-                    value: score,
-                    theme: gameTheme,
-                    pulseAnimation: _pulseAnimation,
-                    isPulsing: false), // isPulsing can be false for score
-                ScoreDisplay(
-                    label: 'HIGH SCORE',
-                    value: highScore,
-                    theme: gameTheme,
-                    pulseAnimation: _pulseAnimation,
-                    isPulsing: isNewHighScore),
-              ],
-            ),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onHorizontalDragEnd: (details) {
-                // Added a check for 'gameOver' state before handling swipe.
-                if (gameOver) return;
-                if (details.primaryVelocity! > 200)
-                  _handleSwipe(DragEndDetails(
-                      velocity: Velocity(
-                          pixelsPerSecond:
-                              Offset(details.primaryVelocity!, 0))));
-                else if (details.primaryVelocity! < -200)
-                  _handleSwipe(DragEndDetails(
-                      velocity: Velocity(
-                          pixelsPerSecond:
-                              Offset(details.primaryVelocity!, 0))));
-              },
-              onVerticalDragEnd: (details) {
-                // Added a check for 'gameOver' state before handling swipe.
-                if (gameOver) return;
-                if (details.primaryVelocity! > 200)
-                  _handleSwipe(DragEndDetails(
-                      velocity: Velocity(
-                          pixelsPerSecond:
-                              Offset(0, details.primaryVelocity!))));
-                else if (details.primaryVelocity! < -200)
-                  _handleSwipe(DragEndDetails(
-                      velocity: Velocity(
-                          pixelsPerSecond:
-                              Offset(0, details.primaryVelocity!))));
-              },
-              child: Container(
-                width: gridSize,
-                height: gridSize,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: gameTheme.gridColor,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Expanded(
+                      child: ScoreDisplay(
+                          label: 'SCORE',
+                          value: score,
+                          theme: gameTheme,
+                          pulseAnimation: _pulseAnimation,
+                          isPulsing: false,
+                          labelFontSize: _scoreLabelFontSize,
+                          valueFontSize: _scoreValueFontSize,
+                          ),
+                    ),
+                    SizedBox(width: _boardSize * 0.05), // Responsive spacing
+                    Expanded(
+                      child: ScoreDisplay(
+                          label: 'HIGH SCORE',
+                          value: highScore,
+                          theme: gameTheme,
+                          pulseAnimation: _pulseAnimation,
+                          isPulsing: isNewHighScore,
+                          labelFontSize: _scoreLabelFontSize,
+                          valueFontSize: _scoreValueFontSize,
+                          ),
                     ),
                   ],
                 ),
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: size,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: size * size,
-                  itemBuilder: (context, index) {
-                    final r = index ~/ size;
-                    final c = index % size;
-                    final value = grid[r][c];
-                    final tileId = '$r-$c';
-                    final bool isNew = newTileIds.contains(tileId);
-                    final bool isMerged = mergedTileIds.contains(tileId);
-
-                    Widget tile = Container(
-                      width: tileSize,
-                      height: tileSize,
-                      decoration: BoxDecoration(
-                        color: gameTheme.tileColors[value] ??
-                            gameTheme.tileColors[0],
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          if (value > 0)
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                        ],
-                      ),
-                      child: Center(
-                        child: value == 0
-                            ? null
-                            : FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(4.0),
-                                  child: Text(
-                                    '$value',
-                                    style: TextStyle(
-                                      fontSize: value > 1000 ? 22 : 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: getTextColorForTile(value),
-                                      height: 1,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      ),
-                    );
-
-                    if (isNew) {
-                      // Clamp the animation value to [0, 1] to avoid assertion errors
-                      return AnimatedBuilder(
-                        animation: _newTileAnimation,
-                        builder: (context, child) {
-                          final scale = _newTileAnimation.value.clamp(0.0, 1.0);
-                          return Transform.scale(
-                            scale: scale,
-                            child: child,
-                          );
-                        },
-                        child: tile,
-                      );
+                SizedBox(height: (_boardSize * 0.05).clamp(10.0, 30.0)), // Responsive spacing
+                GestureDetector(
+                  onHorizontalDragEnd: (details) {
+                    if (gameOver) return;
+                    if (details.primaryVelocity! > 200) {
+                      _handleSwipe(DragEndDetails(
+                          velocity: Velocity(
+                              pixelsPerSecond:
+                                  Offset(details.primaryVelocity!, 0))));
+                    } else if (details.primaryVelocity! < -200) {
+                      _handleSwipe(DragEndDetails(
+                          velocity: Velocity(
+                              pixelsPerSecond:
+                                  Offset(details.primaryVelocity!, 0))));
                     }
-                    if (isMerged) {
-                      return AnimatedBuilder(
-                        animation: _scaleAnimation,
-                        builder: (context, child) {
-                          final scale = _scaleAnimation.value.clamp(0.0, 1.05);
-                          return Transform.scale(
-                            scale: scale,
-                            child: child,
-                          );
-                        },
-                        child: tile,
-                      );
-                    }
-                    // TODO: Implement slide animations using _slideAnimation and transforming tile positions.
-                    // This is more complex and usually involves an overlay or stack of tiles.
-
-                    return tile; // Default tile without specific animation wrapper for this example
                   },
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  Expanded(
-                    child: Container(
-                      height: 50,
-                      margin: const EdgeInsets.only(right: 8),
-                      child: ElevatedButton(
-                        onPressed: _restartGame,
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 4,
-                          shadowColor: Colors.black.withOpacity(0.2),
-                        ),
-                        child: const Text(
-                          'New Game',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    height: 50,
-                    width: 50,
+                  onVerticalDragEnd: (details) {
+                    if (gameOver) return;
+                    if (details.primaryVelocity! > 200) {
+                      _handleSwipe(DragEndDetails(
+                          velocity: Velocity(
+                              pixelsPerSecond:
+                                  Offset(0, details.primaryVelocity!))));
+                    } else if (details.primaryVelocity! < -200) {
+                      _handleSwipe(DragEndDetails(
+                          velocity: Velocity(
+                              pixelsPerSecond:
+                                  Offset(0, details.primaryVelocity!))));
+                    }
+                  },
+                  child: Container(
+                    width: _boardSize,
+                    height: _boardSize,
+                    padding: EdgeInsets.all((_boardSize * 0.03).clamp(6.0, 12.0)), // Responsive padding
                     decoration: BoxDecoration(
-                      color: canUndo && !isAnimating
-                          ? gameTheme.buttonColor
-                          : gameTheme.buttonColor.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(10),
+                      color: gameTheme.gridColor,
+                      borderRadius: BorderRadius.circular((_boardSize * 0.04).clamp(8.0, 16.0)), // Responsive radius
                       boxShadow: [
-                        if (canUndo && !isAnimating)
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: (_boardSize * 0.04).clamp(6.0, 12.0),
+                          offset: const Offset(0, 4),
+                        ),
                       ],
                     ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.undo_rounded,
-                        color: canUndo && !isAnimating
-                            ? gameTheme.buttonTextColor
-                            : gameTheme.buttonTextColor.withOpacity(0.3),
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: size,
+                        crossAxisSpacing: _tileGap,
+                        mainAxisSpacing: _tileGap,
                       ),
-                      onPressed: (canUndo && !isAnimating) ? _undoMove : null,
-                      tooltip: 'Undo Move',
+                      itemCount: size * size,
+                      itemBuilder: (context, index) {
+                        final r = index ~/ size;
+                        final c = index % size;
+                        final value = grid[r][c];
+                        final tileId = '$r-$c';
+                        final bool isNew = newTileIds.contains(tileId);
+                        final bool isMerged = mergedTileIds.contains(tileId);
+
+                        Widget tile = Container(
+                          width: _tileContainerSize,
+                          height: _tileContainerSize,
+                          decoration: BoxDecoration(
+                            color: gameTheme.tileColors[value] ??
+                                gameTheme.tileColors[0],
+                            borderRadius: BorderRadius.circular((_tileContainerSize * 0.1).clamp(4.0, 10.0)), // Responsive radius
+                            boxShadow: [
+                              if (value > 0)
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: (_tileContainerSize * 0.05).clamp(2.0, 5.0),
+                                  offset: const Offset(0, 2),
+                                ),
+                            ],
+                          ),
+                          child: Center(
+                            child: value == 0
+                                ? null
+                                : FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Padding(
+                                      padding: EdgeInsets.all((_tileContainerSize * 0.05).clamp(2.0, 6.0)),
+                                      child: Text(
+                                        '$value',
+                                        style: TextStyle(
+                                          fontSize: _getTileNumberFontSize(value),
+                                          fontWeight: FontWeight.bold,
+                                          color: getTextColorForTile(value),
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        );
+
+                        if (isNew) {
+                          return AnimatedBuilder(
+                            animation: _newTileAnimation,
+                            builder: (context, child) {
+                              final scale = _newTileAnimation.value.clamp(0.0, 1.0);
+                              return Transform.scale(
+                                scale: scale,
+                                child: child,
+                              );
+                            },
+                            child: tile,
+                          );
+                        }
+                        if (isMerged) {
+                          return AnimatedBuilder(
+                            animation: _scaleAnimation,
+                            builder: (context, child) {
+                              final scale = _scaleAnimation.value; // Pop effect might go > 1.0
+                              return Transform.scale(
+                                scale: scale,
+                                child: child,
+                              );
+                            },
+                            child: tile,
+                          );
+                        }
+                        return tile;
+                      },
                     ),
                   ),
-                ],
-              ),
-            ),
-            if (gameOver && !gameWon)
-              Container(
-                margin: const EdgeInsets.only(top: 24.0),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: gameTheme.gridColor.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
-                child: Text(
-                  'GAME OVER!',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: gameTheme.titleColor,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-            if (gameWon && !gameOver)
-              Container(
-                margin: const EdgeInsets.only(top: 24.0),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: gameTheme.gridColor.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: LinearGradient(
-                    colors: [
-                      gameTheme.tileColors[2048]!.withOpacity(0.9),
-                      gameTheme.tileColors[1024]!.withOpacity(0.9),
+                SizedBox(height: (_boardSize * 0.05).clamp(10.0, 30.0)), // Responsive spacing
+                Container(
+                  margin: EdgeInsets.symmetric(horizontal: (_boardSize * 0.05).clamp(10.0, 20.0)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: <Widget>[
+                      Expanded(
+                        child: Container(
+                          height: (_boardSize * 0.12).clamp(45.0, 60.0), // Responsive height
+                          margin: EdgeInsets.only(right: (_boardSize * 0.02).clamp(4.0, 8.0)),
+                          child: ElevatedButton(
+                            onPressed: _restartGame,
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular((_boardSize * 0.025).clamp(8.0, 12.0)),
+                              ),
+                              elevation: 4,
+                              shadowColor: Colors.black.withOpacity(0.2),
+                            ),
+                            child: Text(
+                              'New Game',
+                              style: TextStyle(
+                                fontSize: _buttonFontSize,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        height: (_boardSize * 0.12).clamp(45.0, 60.0), // Responsive height
+                        width: (_boardSize * 0.12).clamp(45.0, 60.0), // Responsive width
+                        decoration: BoxDecoration(
+                          color: canUndo && !isAnimating
+                              ? gameTheme.buttonColor
+                              : gameTheme.buttonColor.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular((_boardSize * 0.025).clamp(8.0, 12.0)),
+                          boxShadow: [
+                            if (canUndo && !isAnimating)
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                          ],
+                        ),
+                        child: IconButton(
+                          iconSize: (_buttonFontSize * 1.5).clamp(20.0, 30.0), // Responsive icon size
+                          icon: Icon(
+                            Icons.undo_rounded,
+                            color: canUndo && !isAnimating
+                                ? gameTheme.buttonTextColor
+                                : gameTheme.buttonTextColor.withOpacity(0.3),
+                          ),
+                          onPressed: (canUndo && !isAnimating) ? _undoMove : null,
+                          tooltip: 'Undo Move',
+                        ),
+                      ),
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                ),
+                // Game Over and You Win messages could also have responsive font sizes if needed
+                if (gameOver && !gameWon)
+                  Container( // ... existing game over message ...
+                     margin: EdgeInsets.only(top: (_boardSize * 0.06).clamp(15.0, 24.0)),
+                     padding:
+                         EdgeInsets.symmetric(horizontal: (_boardSize * 0.06).clamp(15.0, 24.0), vertical: (_boardSize * 0.03).clamp(8.0, 12.0)),
+                     decoration: BoxDecoration(
+                       color: gameTheme.gridColor.withOpacity(0.9),
+                       borderRadius: BorderRadius.circular((_boardSize * 0.03).clamp(8.0, 12.0)),
+                       boxShadow: [
+                         BoxShadow(
+                           color: Colors.black.withOpacity(0.1),
+                           blurRadius: 8,
+                           offset: const Offset(0, 2),
+                         ),
+                       ],
+                     ),
+                     child: Text(
+                       'GAME OVER!',
+                       style: TextStyle(
+                         fontSize: (_boardSize * 0.07).clamp(20.0, 30.0),
+                         fontWeight: FontWeight.bold,
+                         color: gameTheme.titleColor,
+                         letterSpacing: 2,
+                       ),
+                     ),
+                  ),
+                if (gameWon && !gameOver)
+                  Container( // ... existing you win message ...
+                    margin: EdgeInsets.only(top: (_boardSize * 0.06).clamp(15.0, 24.0)),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: (_boardSize * 0.06).clamp(15.0, 24.0), vertical: (_boardSize * 0.03).clamp(8.0, 12.0)),
+                    decoration: BoxDecoration(
+                      color: gameTheme.gridColor.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular((_boardSize * 0.03).clamp(8.0, 12.0)),
+                      gradient: LinearGradient(
+                        colors: [
+                          gameTheme.tileColors[2048]!.withOpacity(0.9),
+                          gameTheme.tileColors[1024]!.withOpacity(0.9),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Text(
-                  'YOU WIN! Keep Playing?',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: gameTheme.buttonTextColor,
-                    letterSpacing: 1,
+                    child: Text(
+                      'YOU WIN! Keep Playing?',
+                      style: TextStyle(
+                        fontSize: (_boardSize * 0.065).clamp(18.0, 28.0),
+                        fontWeight: FontWeight.bold,
+                        color: gameTheme.buttonTextColor,
+                        letterSpacing: 1,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-          ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-// Helper widget for Score Display with optional pulsing
+// Updated ScoreDisplay to accept font sizes
 class ScoreDisplay extends StatelessWidget {
   final String label;
   final int value;
   final GameTheme theme;
   final Animation<double> pulseAnimation;
   final bool isPulsing;
+  final double labelFontSize;
+  final double valueFontSize;
 
   const ScoreDisplay({
     super.key,
@@ -1290,19 +1263,21 @@ class ScoreDisplay extends StatelessWidget {
     required this.theme,
     required this.pulseAnimation,
     required this.isPulsing,
+    required this.labelFontSize,
+    required this.valueFontSize,
   });
 
   @override
   Widget build(BuildContext context) {
     Widget content = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: (labelFontSize * 1.25).clamp(16,24) , vertical: (labelFontSize*0.75).clamp(10,16)), // Responsive padding
       decoration: BoxDecoration(
         color: theme.scoreContainerColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular((labelFontSize * 0.5).clamp(6,10)), // Responsive radius
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
+            blurRadius: (labelFontSize * 0.5).clamp(4,8),
             offset: const Offset(0, 2),
           ),
         ],
@@ -1313,17 +1288,17 @@ class ScoreDisplay extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: labelFontSize,
               letterSpacing: 1.2,
               color: theme.scoreTextColor.withOpacity(0.9),
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: (labelFontSize * 0.25).clamp(2,5)), // Responsive spacing
           Text(
             '$value',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: valueFontSize,
               fontWeight: FontWeight.bold,
               color: theme.scoreTextColor,
               height: 1.2,
@@ -1340,12 +1315,11 @@ class ScoreDisplay extends StatelessWidget {
         curve: Curves.easeInOut,
         builder: (context, scale, child) {
           return Transform.scale(
-            scale: scale.clamp(1.0, 1.05),
+            scale: scale, // Use the direct scale value from tween
             child: child,
           );
         },
         child: content,
-        onEnd: () {},
       );
     }
     return content;
