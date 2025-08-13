@@ -2,7 +2,10 @@
     <application
         android:label="Tile Fusion 2048"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -31,6 +34,10 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+    
+    <!-- Permissions for network access if needed -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
          https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.

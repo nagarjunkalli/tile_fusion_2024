@@ -1,0 +1,15 @@
+# This file contains the keystore and key alias references for signing your app
+# Copy this file to key.properties and fill in the actual values
+# NEVER commit the actual key.properties file to version control
+
+# Path to your keystore file (relative to android/ directory)
+storeFile=../upload-keystore.jks
+
+# Password for the keystore
+storePassword=your_keystore_password
+
+# Alias for the key
+keyAlias=upload
+
+# Password for the key
+keyPassword=your_key_password

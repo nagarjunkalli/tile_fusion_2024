@@ -1,0 +1,133 @@
+name: Build and Release Android App
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (apk or bundle)'
+        required: true
+        default: 'bundle'
+        type: choice
+        options:
+        - apk
+        - bundle
+
+jobs:
+  build:
+    name: Build Android App
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+        cache: true
+        
+    - name: Verify Flutter installation
+      run: |
+        flutter --version
+        flutter doctor -v
+        
+    - name: Get dependencies
+      run: flutter pub get
+      
+    - name: Generate app icons
+      run: flutter pub run flutter_launcher_icons:main
+      
+    - name: Run tests
+      run: flutter test
+      
+    - name: Analyze code
+      run: flutter analyze
+      
+    - name: Build APK (Debug)
+      if: github.event_name == 'pull_request'
+      run: flutter build apk --debug
+      
+    - name: Build APK (Release)
+      if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'apk')
+      run: flutter build apk --release
+      
+    - name: Setup keystore for release
+      if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+      run: |
+        # Decode and save keystore
+        echo "$KEYSTORE_BASE64" | base64 -d > android/upload-keystore.jks
+        # Create key.properties
+        echo "$KEY_PROPERTIES" > android/key.properties
+        
+    - name: Build App Bundle (Release)
+      if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'bundle')
+      run: flutter build appbundle --release
+      
+    - name: Upload APK artifact
+      if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'apk')
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+        
+    - name: Upload App Bundle artifact
+      if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'bundle')
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-bundle
+        path: build/app/outputs/bundle/release/app-release.aab
+        
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          build/app/outputs/flutter-apk/app-release.apk
+          build/app/outputs/bundle/release/app-release.aab
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: Deploy to Google Play Store
+  deploy:
+    name: Deploy to Google Play Store
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && contains(github.ref, 'release')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download App Bundle
+      uses: actions/download-artifact@v4
+      with:
+        name: app-release-bundle
+        path: ./
+        
+    - name: Deploy to Play Store
+      uses: r0adkll/upload-google-play@v1
+      with:
+        serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        packageName: com.tilefusion.game2048
+        releaseFiles: app-release.aab
+        track: production
+        status: completed
